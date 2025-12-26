@@ -42,6 +42,7 @@
     <string name="effect_night">NIGHT</string>
     <string name="effect_face_retouch">FACE RETOUCH</string>
     <string name="effect_auto">AUTO</string>
+    <string name="lut_label">LUT</string>
 
     <string name="grid_off">GRID OFF</string>
     <string name="grid_on_3">GRID 3x3</string>

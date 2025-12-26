@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.PowerManager
 import android.util.Log
 import android.view.OrientationEventListener
+import androidx.camera.core.CameraEffect
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.ExperimentalZeroShutterLag
 import androidx.camera.core.ImageCapture
@@ -68,6 +69,8 @@ import org.lineageos.aperture.ext.nextPowerOfTwo
 import org.lineageos.aperture.ext.previous
 import org.lineageos.aperture.ext.previousPowerOfTwo
 import org.lineageos.aperture.ext.thermalStatusFlow
+import org.lineageos.aperture.gl.LutCameraEffect
+import org.lineageos.aperture.gl.LutProcessor
 import org.lineageos.aperture.models.Camera
 import org.lineageos.aperture.models.CameraConfiguration
 import org.lineageos.aperture.models.CameraFacing
@@ -82,6 +85,7 @@ import org.lineageos.aperture.models.GridMode
 import org.lineageos.aperture.models.HardwareKey
 import org.lineageos.aperture.models.HotPixelMode
 import org.lineageos.aperture.models.IslandItem
+import org.lineageos.aperture.models.Lut
 import org.lineageos.aperture.models.NoiseReductionMode
 import org.lineageos.aperture.models.PhotoOutputFormat
 import org.lineageos.aperture.models.Rotation
@@ -91,6 +95,7 @@ import org.lineageos.aperture.models.TimerMode
 import org.lineageos.aperture.qr.QrImageAnalyzer
 import org.lineageos.aperture.repositories.CameraRepository
 import org.lineageos.aperture.utils.CameraSoundsUtils
+import org.lineageos.aperture.utils.LutUtils
 import org.lineageos.aperture.utils.StorageUtils
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ExecutorService
@@ -140,6 +145,17 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
      * CameraX's [LifecycleCameraController].
      */
     val cameraController = LifecycleCameraController(applicationContext)
+
+    // LUTs
+    private val lutProcessor = LutProcessor()
+    private val lutEffect = LutCameraEffect(
+        CameraEffect.PREVIEW or CameraEffect.VIDEO_CAPTURE or CameraEffect.IMAGE_CAPTURE,
+        cameraExecutor,
+        lutProcessor
+    )
+
+    val luts = lutRepository.luts
+    val selectedLutId = preferencesRepository.selectedLutId
 
     /**
      * Mutex used to rebind the camera.
@@ -923,7 +939,21 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
         )
 
     init {
+        cameraController.setEffects(listOf(lutEffect))
+
         viewModelScope.launch {
+            launch {
+                combine(
+                    preferencesRepository.selectedLutId,
+                    lutRepository.luts
+                ) { id, luts ->
+                    luts.find { it.id == id }
+                }.collectLatest { lut ->
+                    val lutData = lut?.file?.let { LutUtils.loadCubeLut(it) }
+                    lutProcessor.setLut(lutData)
+                }
+            }
+
             launch {
                 flashMode.collectLatest { flashMode ->
                     cameraController.flashMode = flashMode
@@ -967,6 +997,8 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
     }
 
     override fun onCleared() {
+        lutProcessor.release()
+
         cameraController.unbind()
 
         cameraExecutor.shutdown()
@@ -1605,6 +1637,18 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
     ]?.value ?: false
 
     fun fileExists(uri: Uri) = mediaRepository.fileExists(uri)
+
+    fun importLut(uri: Uri) = viewModelScope.launch {
+        lutRepository.importLut(uri)
+    }
+
+    fun removeLut(lut: Lut) = viewModelScope.launch {
+        lutRepository.removeLut(lut)
+    }
+
+    fun selectLut(id: String?) {
+        preferencesRepository.selectedLutId.value = id
+    }
 
     /**
      * Get whether or not any camera currently supports video mode.

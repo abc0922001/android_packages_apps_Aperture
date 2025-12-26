@@ -446,6 +446,14 @@ class PreferencesRepository(
     ).asPreferenceHolder()
 
     /**
+     * The ID of the currently selected LUT.
+     */
+    val selectedLutId = primitivePreference<String?>(
+        key = "selected_lut_id",
+        defaultValue = null,
+    ).asPreferenceHolder()
+
+    /**
      * The hardware key action preferences for all [HardwareKey]s.
      */
     val hardwareKeyActionPreferences = HardwareKey.entries.associateWith { hardwareKey ->

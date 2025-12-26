@@ -11,6 +11,7 @@ import androidx.camera.camera2.internal.CameraIdUtil
 import com.google.android.material.color.DynamicColors
 import kotlinx.coroutines.MainScope
 import org.lineageos.aperture.repositories.CameraRepository
+import org.lineageos.aperture.repositories.LutRepository
 import org.lineageos.aperture.repositories.MediaRepository
 import org.lineageos.aperture.repositories.OverlaysRepository
 import org.lineageos.aperture.repositories.PreferencesRepository
@@ -19,6 +20,7 @@ class ApertureApplication : Application() {
     private val coroutineScope = MainScope()
 
     val cameraRepository by lazy { CameraRepository(this, coroutineScope, overlaysRepository) }
+    val lutRepository by lazy { LutRepository(this) }
     val mediaRepository by lazy { MediaRepository(this) }
     val overlaysRepository by lazy { OverlaysRepository(this) }
     val preferencesRepository by lazy { PreferencesRepository(this, coroutineScope) }

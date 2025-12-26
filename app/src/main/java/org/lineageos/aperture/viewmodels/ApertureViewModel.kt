@@ -16,6 +16,7 @@ abstract class ApertureViewModel(application: Application) : AndroidViewModel(ap
     private val apertureApplication = getApplication<ApertureApplication>()
 
     protected val cameraRepository = apertureApplication.cameraRepository
+    protected val lutRepository = apertureApplication.lutRepository
     protected val mediaRepository = apertureApplication.mediaRepository
     protected val overlaysRepository = apertureApplication.overlaysRepository
     protected val preferencesRepository = apertureApplication.preferencesRepository

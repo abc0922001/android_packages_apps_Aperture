@@ -35,6 +35,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.camera2.interop.CaptureRequestOptions
@@ -120,6 +121,7 @@ import org.lineageos.aperture.models.VideoDynamicRange
 import org.lineageos.aperture.models.VideoMirrorMode
 import org.lineageos.aperture.models.VideoStabilizationMode
 import org.lineageos.aperture.ui.dialogs.LocationPermissionsDialog
+import org.lineageos.aperture.ui.dialogs.LutBottomSheetDialog
 import org.lineageos.aperture.ui.dialogs.QrBottomSheetDialog
 import org.lineageos.aperture.ui.views.CameraModeSelectorLayout
 import org.lineageos.aperture.ui.views.CapturePreviewLayout
@@ -154,9 +156,16 @@ open class CameraActivity : AppCompatActivity(R.layout.activity_camera) {
     private val capturePreviewLayout by lazy { findViewById<CapturePreviewLayout>(R.id.capturePreviewLayout) }
     private val countDownView by lazy { findViewById<CountDownView>(R.id.countDownView) }
     private val effectButton by lazy { findViewById<Button>(R.id.effectButton) }
+    private val lutButton by lazy { findViewById<Button>(R.id.lutButton) }
     private val exposureLevel by lazy { findViewById<VerticalSlider>(R.id.exposureLevel) }
     private val flashButton by lazy { findViewById<ImageButton>(R.id.flashButton) }
     private val flipCameraButton by lazy { findViewById<ImageButton>(R.id.flipCameraButton) }
+
+    private val lutPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { viewModel.importLut(it) }
+    }
     private val galleryButtonCardView by lazy { findViewById<CardView>(R.id.galleryButtonCardView) }
     private val galleryButtonIconImageView by lazy { findViewById<ImageView>(R.id.galleryButtonIconImageView) }
     private val galleryButtonPreviewImageView by lazy { findViewById<ImageView>(R.id.galleryButtonPreviewImageView) }
@@ -430,6 +439,16 @@ open class CameraActivity : AppCompatActivity(R.layout.activity_camera) {
         videoFrameRateButton.setOnClickListener { viewModel.cycleVideoFrameRate() }
         videoDynamicRangeButton.setOnClickListener { viewModel.cycleVideoDynamicRange() }
         effectButton.setOnClickListener { viewModel.cycleExtensionMode() }
+        lutButton.setOnClickListener {
+            LutBottomSheetDialog(
+                this,
+                viewModel.luts.value,
+                viewModel.selectedLutId.value,
+                onImport = { lutPickerLauncher.launch(arrayOf("*/*")) },
+                onSelect = { viewModel.selectLut(it?.id) },
+                onDelete = { viewModel.removeLut(it) }
+            ).show()
+        }
         gridButton.setOnClickListener { viewModel.cycleGridMode() }
         timerButton.setOnClickListener { viewModel.toggleTimerMode() }
         micButton.setOnClickListener { viewModel.toggleVideoMicrophoneEnabled() }
@@ -866,6 +885,7 @@ open class CameraActivity : AppCompatActivity(R.layout.activity_camera) {
                 timerButton.isEnabled = cameraState == CameraState.IDLE
                 aspectRatioButton.isEnabled = cameraState == CameraState.IDLE
                 effectButton.isEnabled = cameraState == CameraState.IDLE
+                lutButton.isEnabled = cameraState == CameraState.IDLE
                 settingsButton.isEnabled = cameraState == CameraState.IDLE
 
                 lensSelectorLayout.setCameraState(cameraState)

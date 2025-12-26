@@ -154,6 +154,12 @@
                 android:drawableTop="@drawable/ic_blur_off"
                 android:text="@string/effect_none" />
 
+            <Button
+                android:id="@+id/lutButton"
+                style="@style/Theme.Aperture.Camera.SecondaryTopBarButton"
+                android:drawableTop="@drawable/ic_blur_off"
+                android:text="@string/lut_label" />
+
             <!-- Video mode specific settings -->
             <Button
                 android:id="@+id/videoQualityButton"
