@@ -939,7 +939,9 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
         )
 
     init {
-        cameraController.setEffects(setOf(lutEffect))
+        if (preferencesRepository.selectedLutId.value != null) {
+            cameraController.setEffects(setOf(lutEffect))
+        }
 
         viewModelScope.launch {
             launch {
@@ -984,7 +986,14 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
                     preferencesRepository.colorCorrectionAberrationMode,
                     preferencesRepository.distortionCorrectionMode,
                     preferencesRepository.hotPixelMode,
+                    preferencesRepository.selectedLutId,
                 ) { }.drop(1).collectLatest {
+                    if (preferencesRepository.selectedLutId.value != null) {
+                        cameraController.setEffects(setOf(lutEffect))
+                    } else {
+                        cameraController.setEffects(emptySet())
+                    }
+
                     updateConfiguration<CameraConfiguration> { cameraConfiguration ->
                         createInitialCameraConfiguration(
                             camera = cameraConfiguration.camera,
@@ -1708,8 +1717,9 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
             val usePhotoJpegUltraHdr = preferencesRepository.usePhotoJpegUltraHdr.value
             val enableRawImageCapture = preferencesRepository.enableRawImageCapture.value
             val disableJpegWithRaw = preferencesRepository.disableJpegWithRaw.value
+            val isLutEnabled = preferencesRepository.selectedLutId.value != null
             val photoOutputFormat = when {
-                inSingleCaptureMode.value -> PhotoOutputFormat.JPEG
+                inSingleCaptureMode.value || isLutEnabled -> PhotoOutputFormat.JPEG
 
                 enableRawImageCapture
                         && disableJpegWithRaw
