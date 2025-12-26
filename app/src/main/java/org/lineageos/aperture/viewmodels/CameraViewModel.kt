@@ -939,7 +939,7 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
         )
 
     init {
-        cameraController.setEffects(listOf(lutEffect))
+        cameraController.setEffects(setOf(lutEffect))
 
         viewModelScope.launch {
             launch {

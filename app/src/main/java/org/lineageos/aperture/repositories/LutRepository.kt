@@ -44,14 +44,14 @@ class LutRepository(private val context: Context) {
     suspend fun importLut(uri: Uri, name: String? = null): Boolean = withContext(Dispatchers.IO) {
         try {
             val fileName = name ?: getFileNameFromUri(uri) ?: "imported_lut_${System.currentTimeMillis()}"
-            val safeName = fileName.replace("[^a-zA-Z0-9\.\-]".toRegex(), "_").let {
+            val safeName = fileName.replace("[^a-zA-Z0-9\\.\\-]".toRegex(), "_").let {
                 if (it.endsWith(".cube")) it else "$it.cube"
             }
             val destFile = File(lutDir, safeName)
 
-            context.contentResolver.openInputStream(uri)?.use {
-                FileOutputStream(destFile).use {
-                    it.copyTo(output)
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
                 }
             }
             refreshLuts()

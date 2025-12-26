@@ -221,7 +221,7 @@ class LutProcessor : SurfaceProcessor {
         }
     }
 
-    override fun release() {
+    fun release() {
         if (isReleased.getAndSet(true)) return
         executor.execute {
             if (program != 0) GLES20.glDeleteProgram(program)
@@ -233,6 +233,8 @@ class LutProcessor : SurfaceProcessor {
     }
     
     companion object {
+        private const val EGL_RECORDABLE_ANDROID = 0x3142
+
         private val FULL_RECTANGLE_COORDS = floatArrayOf(
             -1.0f, -1.0f,
              1.0f, -1.0f,
