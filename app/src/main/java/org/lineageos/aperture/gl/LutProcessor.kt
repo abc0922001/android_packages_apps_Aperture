@@ -16,6 +16,7 @@ import android.opengl.GLES20
 import android.opengl.GLES30
 import android.os.Handler
 import android.os.HandlerThread
+import android.util.Log
 import android.view.Surface
 import androidx.camera.core.SurfaceOutput
 import androidx.camera.core.SurfaceProcessor
@@ -58,7 +59,12 @@ class LutProcessor : SurfaceProcessor {
         executor = java.util.concurrent.Executor { handler.post(it) }
         
         executor.execute {
-            initGl()
+            try {
+                initGl()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize GL", e)
+                isReleased.set(true)
+            }
         }
     }
 
@@ -76,7 +82,9 @@ class LutProcessor : SurfaceProcessor {
     private fun initGl() {
         eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
         val version = IntArray(2)
-        EGL14.eglInitialize(eglDisplay, version, 0, version, 1)
+        if (!EGL14.eglInitialize(eglDisplay, version, 0, version, 1)) {
+            throw RuntimeException("eglInitialize failed")
+        }
 
         val attribList = intArrayOf(
             EGL14.EGL_RED_SIZE, 8,
@@ -89,7 +97,12 @@ class LutProcessor : SurfaceProcessor {
         )
         val configs = arrayOfNulls<EGLConfig>(1)
         val numConfigs = IntArray(1)
-        EGL14.eglChooseConfig(eglDisplay, attribList, 0, configs, 0, 1, numConfigs, 0)
+        if (!EGL14.eglChooseConfig(eglDisplay, attribList, 0, configs, 0, 1, numConfigs, 0)) {
+            throw RuntimeException("eglChooseConfig failed")
+        }
+        if (numConfigs[0] == 0 || configs[0] == null) {
+             throw RuntimeException("No suitable EGL config found")
+        }
         eglConfig = configs[0]
 
         val ctxAttribs = intArrayOf(
@@ -97,12 +110,17 @@ class LutProcessor : SurfaceProcessor {
             EGL14.EGL_NONE
         )
         eglContext = EGL14.eglCreateContext(eglDisplay, eglConfig, EGL14.EGL_NO_CONTEXT, ctxAttribs, 0)
+        if (eglContext == EGL14.EGL_NO_CONTEXT) {
+            throw RuntimeException("eglCreateContext failed")
+        }
 
         val surfaceAttribs = intArrayOf(EGL14.EGL_WIDTH, 1, EGL14.EGL_HEIGHT, 1, EGL14.EGL_NONE)
         val tempSurface = EGL14.eglCreatePbufferSurface(eglDisplay, eglConfig, surfaceAttribs, 0)
         EGL14.eglMakeCurrent(eglDisplay, tempSurface, tempSurface, eglContext)
 
         program = GlUtils.createProgram(VERTEX_SHADER, FRAGMENT_SHADER)
+        if (program == 0) throw RuntimeException("Failed to create GL program")
+        
         uTexMatrixLoc = GLES20.glGetUniformLocation(program, "uTexMatrix")
         uLutSizeLoc = GLES20.glGetUniformLocation(program, "uLutSize")
         
@@ -146,11 +164,15 @@ class LutProcessor : SurfaceProcessor {
         }
         
         executor.execute {
+            if (isReleased.get() || inputSurfaceTexture == null) {
+                request.willNotProvideSurface()
+                return@execute
+            }
             inputSurfaceTexture!!.setDefaultBufferSize(request.resolution.width, request.resolution.height)
             val surface = Surface(inputSurfaceTexture)
             request.provideSurface(surface, executor) {
                 surface.release()
-                inputSurfaceTexture!!.release()
+                inputSurfaceTexture?.release()
             }
         }
     }
@@ -161,6 +183,10 @@ class LutProcessor : SurfaceProcessor {
             return
         }
         executor.execute {
+            if (isReleased.get()) {
+                output.close()
+                return@execute
+            }
             val surface = output.getSurface(executor) {
                 executor.execute {
                     outputSurfaces.remove(output)?.let { eglSurf ->
@@ -176,7 +202,7 @@ class LutProcessor : SurfaceProcessor {
     }
 
     private fun drawFrame() {
-        if (isReleased.get()) return
+        if (isReleased.get() || inputSurfaceTexture == null) return
         
         inputSurfaceTexture!!.updateTexImage()
         inputSurfaceTexture!!.getTransformMatrix(textureMatrix)
@@ -233,6 +259,7 @@ class LutProcessor : SurfaceProcessor {
     }
     
     companion object {
+        private const val TAG = "LutProcessor"
         private const val EGL_RECORDABLE_ANDROID = 0x3142
 
         private val FULL_RECTANGLE_COORDS = floatArrayOf(
