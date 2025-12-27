@@ -14,9 +14,16 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
+import androidx.lifecycle.findViewTreeLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import coil3.load
+import coil3.request.crossfade
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.lineageos.aperture.R
 import org.lineageos.aperture.ext.smoothRotate
 import org.lineageos.aperture.models.MediaType
@@ -106,22 +113,42 @@ class CapturePreviewLayout(context: Context, attrs: AttributeSet?) : ConstraintL
                 if (uri != null) {
                     imageView.rotation = 0f
                     imageView.scaleX = 1f
-                    imageView.setImageURI(uri)
+                    imageView.load(uri) {
+                        crossfade(true)
+                    }
                 } else {
                     val inputStream = photoInputStream!!
-                    val transform = ExifUtils.getTransform(inputStream)
-                    inputStream.mark(Int.MAX_VALUE)
-                    val bitmap = BitmapFactory.decodeStream(inputStream)
-                    inputStream.reset()
-                    Log.d(LOG_TAG, "Preview transform=$transform screenRotation=$screenRotation")
-                    imageView.rotation =
-                        transform.rotation.offset.toFloat() - screenRotation.offset
-                    imageView.scaleX = if (transform.mirror) {
-                        -1f
-                    } else {
-                        1f
+                    findViewTreeLifecycleOwner()?.lifecycleScope?.launch(Dispatchers.IO) {
+                        inputStream.mark(Int.MAX_VALUE)
+                        val transform = ExifUtils.getTransform(inputStream)
+                        inputStream.reset()
+
+                        val options = BitmapFactory.Options().apply {
+                            inJustDecodeBounds = true
+                        }
+                        inputStream.mark(Int.MAX_VALUE)
+                        BitmapFactory.decodeStream(inputStream, null, options)
+                        inputStream.reset()
+
+                        options.inSampleSize = calculateInSampleSize(options, 2048, 2048)
+                        options.inJustDecodeBounds = false
+
+                        inputStream.mark(Int.MAX_VALUE)
+                        val bitmap = BitmapFactory.decodeStream(inputStream, null, options)
+                        inputStream.reset()
+
+                        withContext(Dispatchers.Main) {
+                            Log.d(LOG_TAG, "Preview transform=$transform screenRotation=$screenRotation")
+                            imageView.rotation =
+                                transform.rotation.offset.toFloat() - screenRotation.offset
+                            imageView.scaleX = if (transform.mirror) {
+                                -1f
+                            } else {
+                                1f
+                            }
+                            imageView.setImageBitmap(bitmap)
+                        }
                     }
-                    imageView.setImageBitmap(bitmap)
                 }
             }
 
@@ -139,6 +166,26 @@ class CapturePreviewLayout(context: Context, attrs: AttributeSet?) : ConstraintL
                     }
             }
         }
+    }
+
+    private fun calculateInSampleSize(
+        options: BitmapFactory.Options,
+        reqWidth: Int,
+        reqHeight: Int
+    ): Int {
+        val (height: Int, width: Int) = options.run { outHeight to outWidth }
+        var inSampleSize = 1
+
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight: Int = height / 2
+            val halfWidth: Int = width / 2
+
+            while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+
+        return inSampleSize
     }
 
     private fun stopPreview() {

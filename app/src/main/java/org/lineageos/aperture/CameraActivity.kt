@@ -1806,7 +1806,7 @@ open class CameraActivity : AppCompatActivity(R.layout.activity_camera) {
      * When the user took a photo or a video and confirmed it, its URI gets sent back to the
      * app that sent the intent and closes the camera.
      */
-    private fun sendIntentResultAndExit(input: Any) {
+    private fun sendIntentResultAndExit(input: Any) = lifecycleScope.launch(Dispatchers.IO) {
         // The user confirmed the choice
         var outputUri: Uri? = null
         if (intent.extras?.containsKey(MediaStore.EXTRA_OUTPUT) == true) {
@@ -1834,36 +1834,48 @@ open class CameraActivity : AppCompatActivity(R.layout.activity_camera) {
                     }
                 }
 
-                setResult(RESULT_OK)
+                withContext(Dispatchers.Main) {
+                    setResult(RESULT_OK)
+                }
             } catch (exc: FileNotFoundException) {
                 Log.e(LOG_TAG, "Failed to open URI")
-                setResult(RESULT_CANCELED)
-            }
-        } ?: setResult(RESULT_OK, Intent().apply {
-            when (input) {
-                is InputStream -> {
-                    // No output URI provided, so return the photo inline as a downscaled Bitmap.
-                    action = "inline-data"
-                    val transform = ExifUtils.getTransform(input)
-                    val bitmap = input.use { BitmapFactory.decodeStream(input) }
-                    val scaledAndRotatedBitmap = bitmap.scale(
-                        SINGLE_CAPTURE_INLINE_MAX_SIDE_LEN_PIXELS
-                    ).transform(transform)
-                    putExtra("data", scaledAndRotatedBitmap)
+                withContext(Dispatchers.Main) {
+                    setResult(RESULT_CANCELED)
                 }
-
-                is Uri -> {
-                    // We saved the media (video), so return the URI that we saved.
-                    data = input
-                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    putExtra(MediaStore.EXTRA_OUTPUT, input)
-                }
-
-                else -> throw IllegalStateException("Input is not Uri or InputStream")
             }
-        })
+        } ?: run {
+            val resultIntent = Intent().apply {
+                when (input) {
+                    is InputStream -> {
+                        // No output URI provided, so return the photo inline as a downscaled Bitmap.
+                        action = "inline-data"
+                        val transform = ExifUtils.getTransform(input)
+                        // Decode stream must be done on IO
+                        val bitmap = input.use { BitmapFactory.decodeStream(input) }
+                        val scaledAndRotatedBitmap = bitmap.scale(
+                            SINGLE_CAPTURE_INLINE_MAX_SIDE_LEN_PIXELS
+                        ).transform(transform)
+                        putExtra("data", scaledAndRotatedBitmap)
+                    }
 
-        finish()
+                    is Uri -> {
+                        // We saved the media (video), so return the URI that we saved.
+                        data = input
+                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        putExtra(MediaStore.EXTRA_OUTPUT, input)
+                    }
+
+                    else -> throw IllegalStateException("Input is not Uri or InputStream")
+                }
+            }
+            withContext(Dispatchers.Main) {
+                setResult(RESULT_OK, resultIntent)
+            }
+        }
+
+        withContext(Dispatchers.Main) {
+            finish()
+        }
     }
 
     private fun openSettings() {
