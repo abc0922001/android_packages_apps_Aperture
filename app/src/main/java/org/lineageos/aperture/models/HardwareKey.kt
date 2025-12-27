@@ -84,14 +84,14 @@ enum class HardwareKey(
         /**
          * keycode to ([HardwareKey], first or increase)
          */
-        private val ALL_KEYCODES = mutableMapOf<Int, Pair<HardwareKey, Boolean>>().apply {
+        private val ALL_KEYCODES = buildMap {
             for (key in HardwareKey.entries) {
-                this[key.firstKeycode] = Pair(key, true)
+                put(key.firstKeycode, Pair(key, true))
                 key.secondKeycode?.let {
-                    this[it] = Pair(key, false)
+                    put(it, Pair(key, false))
                 }
             }
-        }.toMap()
+        }
 
         /**
          * Check if the [keyCode] matches one of the [HardwareKey] and returns

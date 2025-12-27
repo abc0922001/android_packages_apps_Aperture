@@ -6,7 +6,7 @@
 package org.lineageos.aperture.ui.views
 
 import android.content.Context
-import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.util.AttributeSet
 import android.util.Log
@@ -30,6 +30,7 @@ import org.lineageos.aperture.models.MediaType
 import org.lineageos.aperture.models.Rotation
 import org.lineageos.aperture.utils.ExifUtils
 import java.io.InputStream
+import java.nio.ByteBuffer
 
 /**
  * Image/video preview fragment
@@ -123,19 +124,28 @@ class CapturePreviewLayout(context: Context, attrs: AttributeSet?) : ConstraintL
                         val transform = ExifUtils.getTransform(inputStream)
                         inputStream.reset()
 
-                        val options = BitmapFactory.Options().apply {
-                            inJustDecodeBounds = true
+                        val bytes = inputStream.readBytes()
+                        // We consumed the stream, so reset it for the callback
+                        inputStream.reset()
+
+                        val source = ImageDecoder.createSource(ByteBuffer.wrap(bytes))
+                        val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                            decoder.allocator = ImageDecoder.ALLOCATOR_HARDWARE
+                            
+                            val (width, height) = info.size.width to info.size.height
+                            val reqWidth = 2048
+                            val reqHeight = 2048
+                            
+                            var sampleSize = 1
+                            if (height > reqHeight || width > reqWidth) {
+                                val halfHeight: Int = height / 2
+                                val halfWidth: Int = width / 2
+                                while (halfHeight / sampleSize >= reqHeight && halfWidth / sampleSize >= reqWidth) {
+                                    sampleSize *= 2
+                                }
+                            }
+                            decoder.setTargetSampleSize(sampleSize)
                         }
-                        inputStream.mark(Int.MAX_VALUE)
-                        BitmapFactory.decodeStream(inputStream, null, options)
-                        inputStream.reset()
-
-                        options.inSampleSize = calculateInSampleSize(options, 2048, 2048)
-                        options.inJustDecodeBounds = false
-
-                        inputStream.mark(Int.MAX_VALUE)
-                        val bitmap = BitmapFactory.decodeStream(inputStream, null, options)
-                        inputStream.reset()
 
                         withContext(Dispatchers.Main) {
                             Log.d(LOG_TAG, "Preview transform=$transform screenRotation=$screenRotation")
@@ -166,26 +176,6 @@ class CapturePreviewLayout(context: Context, attrs: AttributeSet?) : ConstraintL
                     }
             }
         }
-    }
-
-    private fun calculateInSampleSize(
-        options: BitmapFactory.Options,
-        reqWidth: Int,
-        reqHeight: Int
-    ): Int {
-        val (height: Int, width: Int) = options.run { outHeight to outWidth }
-        var inSampleSize = 1
-
-        if (height > reqHeight || width > reqWidth) {
-            val halfHeight: Int = height / 2
-            val halfWidth: Int = width / 2
-
-            while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
-                inSampleSize *= 2
-            }
-        }
-
-        return inSampleSize
     }
 
     private fun stopPreview() {
