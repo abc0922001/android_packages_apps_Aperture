@@ -10,6 +10,7 @@ import android.app.KeyguardManager
 import android.content.ClipData
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.graphics.Rect
 import android.graphics.drawable.AnimatedVectorDrawable
