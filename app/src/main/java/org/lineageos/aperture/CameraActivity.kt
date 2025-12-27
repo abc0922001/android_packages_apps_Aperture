@@ -10,8 +10,7 @@ import android.app.KeyguardManager
 import android.content.ClipData
 import android.content.Intent
 import android.content.pm.ActivityInfo
-import android.graphics.BitmapFactory
-import android.graphics.Color
+import android.graphics.ImageDecoder
 import android.graphics.Rect
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.graphics.drawable.ColorDrawable
@@ -139,6 +138,7 @@ import org.lineageos.aperture.viewmodels.CameraViewModel
 import java.io.ByteArrayInputStream
 import java.io.FileNotFoundException
 import java.io.InputStream
+import java.nio.ByteBuffer
 import kotlin.math.abs
 import kotlin.reflect.safeCast
 import androidx.camera.core.CameraState as CameraXCameraState
