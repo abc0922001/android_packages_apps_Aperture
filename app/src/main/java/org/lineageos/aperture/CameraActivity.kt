@@ -1849,13 +1849,21 @@ open class CameraActivity : AppCompatActivity(R.layout.activity_camera) {
                     is InputStream -> {
                         // No output URI provided, so return the photo inline as a downscaled Bitmap.
                         action = "inline-data"
-                        val transform = ExifUtils.getTransform(input)
-                        // Decode stream must be done on IO
-                        val bitmap = input.use { BitmapFactory.decodeStream(input) }
-                        val scaledAndRotatedBitmap = bitmap.scale(
-                            SINGLE_CAPTURE_INLINE_MAX_SIDE_LEN_PIXELS
-                        ).transform(transform)
-                        putExtra("data", scaledAndRotatedBitmap)
+                        val bytes = input.readBytes()
+                        val source = ImageDecoder.createSource(ByteBuffer.wrap(bytes))
+                        val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE // Safe for IPC
+                            
+                            val (width, height) = info.size.width to info.size.height
+                            val maxSide = Integer.max(width, height)
+                            if (maxSide > SINGLE_CAPTURE_INLINE_MAX_SIDE_LEN_PIXELS) {
+                                val ratio = SINGLE_CAPTURE_INLINE_MAX_SIDE_LEN_PIXELS.toFloat() / maxSide
+                                val targetWidth = (width * ratio).toInt()
+                                val targetHeight = (height * ratio).toInt()
+                                decoder.setTargetSize(targetWidth, targetHeight)
+                            }
+                        }
+                        putExtra("data", bitmap)
                     }
 
                     is Uri -> {

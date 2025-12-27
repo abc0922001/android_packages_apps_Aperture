@@ -28,7 +28,6 @@ import org.lineageos.aperture.R
 import org.lineageos.aperture.ext.smoothRotate
 import org.lineageos.aperture.models.MediaType
 import org.lineageos.aperture.models.Rotation
-import org.lineageos.aperture.utils.ExifUtils
 import java.io.InputStream
 import java.nio.ByteBuffer
 
@@ -120,10 +119,6 @@ class CapturePreviewLayout(context: Context, attrs: AttributeSet?) : ConstraintL
                 } else {
                     val inputStream = photoInputStream!!
                     findViewTreeLifecycleOwner()?.lifecycleScope?.launch(Dispatchers.IO) {
-                        inputStream.mark(Int.MAX_VALUE)
-                        val transform = ExifUtils.getTransform(inputStream)
-                        inputStream.reset()
-
                         val bytes = inputStream.readBytes()
                         // We consumed the stream, so reset it for the callback
                         inputStream.reset()
@@ -148,14 +143,8 @@ class CapturePreviewLayout(context: Context, attrs: AttributeSet?) : ConstraintL
                         }
 
                         withContext(Dispatchers.Main) {
-                            Log.d(LOG_TAG, "Preview transform=$transform screenRotation=$screenRotation")
-                            imageView.rotation =
-                                transform.rotation.offset.toFloat() - screenRotation.offset
-                            imageView.scaleX = if (transform.mirror) {
-                                -1f
-                            } else {
-                                1f
-                            }
+                            imageView.rotation = -screenRotation.offset.toFloat()
+                            imageView.scaleX = 1f
                             imageView.setImageBitmap(bitmap)
                         }
                     }
