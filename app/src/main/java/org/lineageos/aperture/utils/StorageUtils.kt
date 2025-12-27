@@ -14,12 +14,16 @@ import android.provider.MediaStore
 import androidx.camera.core.ImageCapture
 import androidx.camera.video.MediaStoreOutputOptions
 import java.io.OutputStream
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 object StorageUtils {
     private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
     private val STORAGE_DESTINATION = "${Environment.DIRECTORY_DCIM}/Camera"
+    private val DATE_FORMATTER = DateTimeFormatter.ofPattern(FILENAME_FORMAT, Locale.US)
+        .withZone(ZoneId.systemDefault())
 
     /**
      * Returns a new ImageCapture.OutputFileOptions to use to store a photo
@@ -75,6 +79,6 @@ object StorageUtils {
     }
 
     private fun getTimeString(timestamp: Long): String {
-        return SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(timestamp)
+        return DATE_FORMATTER.format(Instant.ofEpochMilli(timestamp))
     }
 }

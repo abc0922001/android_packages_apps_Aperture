@@ -33,11 +33,19 @@ class QrImageAnalyzer(
     private val _qrResult = MutableStateFlow<QrResult?>(null)
     val qrResult = _qrResult.filterNotNull()
 
+    private var lastAnalyzedTimestamp = 0L
+
     override fun analyze(image: ImageProxy) {
         image.use {
             if (_qrResult.value != null) {
                 return
             }
+
+            val currentTimestamp = System.currentTimeMillis()
+            if (currentTimestamp - lastAnalyzedTimestamp < 250L) {
+                return
+            }
+            lastAnalyzedTimestamp = currentTimestamp
 
             processResults(reader.read(image))
         }
